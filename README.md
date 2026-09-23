@@ -25,6 +25,16 @@ Vite + React + TypeScript app with Supabase email/password auth and a Lease Abst
 The browser drives steps 1, 2 and 4, so keep the tab open until a file shows **Completed**.
 Unfinished or failed files can be resumed with **Retry**.
 
+## Logs
+
+Every step is logged in three places:
+
+- **In the app:** the **Log** button on each uploaded file shows the browser and server steps
+  in order (stored in `lease_file_logs`), with a **Copy** button.
+- **Browser console:** lines prefixed `[lease <file id>]`.
+- **Supabase dashboard:** Edge Functions → analyze-lease → Logs (JSON lines tagged with the
+  function version `v` and a request id `req`).
+
 ## Setup
 
 1. Create a project at https://supabase.com/dashboard.

@@ -11,6 +11,8 @@ import {
 } from '../lib/leases'
 import { LeaseDocuments } from '../components/LeaseDocuments'
 import { TextViewer } from '../components/TextViewer'
+import { LogViewer } from '../components/LogViewer'
+import { checkSetup, type SetupIssue } from '../lib/health'
 
 const FINAL_STATUSES = new Set(['completed', 'failed'])
 const REFRESH_MS = 4000
@@ -24,6 +26,8 @@ function describeStage(s: Stage): { text: string; percent?: number } {
       }
     case 'uploading':
       return { text: 'Uploading…' }
+    case 'retrying':
+      return { text: 'Retrying: downloading original PDF…' }
     case 'analyzing':
       return { text: 'Analyzing with AI: finding the main lease, amendments and addenda, and abstracting key terms…' }
     case 'splitting':
@@ -41,7 +45,11 @@ export function LeaseAbstraction() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [busyFiles, setBusyFiles] = useState<Record<string, Stage>>({})
   const [viewing, setViewing] = useState<Lease | null>(null)
+  const [logFileId, setLogFileId] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
+  const [setupIssues, setSetupIssues] = useState<SetupIssue[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -55,8 +63,19 @@ export function LeaseAbstraction() {
       setLoadError(null)
       setFiles(filesRes.data as LeaseFile[])
       setLeases(leasesRes.data as Lease[])
+      setLastRefreshed(new Date())
     }
     setLoading(false)
+  }, [])
+
+  const refresh = async () => {
+    setRefreshing(true)
+    await Promise.all([load(), checkSetup().then(setSetupIssues)])
+    setRefreshing(false)
+  }
+
+  useEffect(() => {
+    checkSetup().then(setSetupIssues)
   }, [])
 
   useEffect(() => {
@@ -94,11 +113,12 @@ export function LeaseAbstraction() {
   }
 
   const retry = async (file: LeaseFile) => {
-    setBusyFiles((b) => ({ ...b, [file.id]: { stage: 'analyzing' } }))
+    setBusyFiles((b) => ({ ...b, [file.id]: { stage: 'retrying' } }))
     try {
       await retryLeaseFile(file, (stage) => setBusyFiles((b) => ({ ...b, [file.id]: stage })))
-    } catch {
-      // The error is saved on the file row and shown in the table.
+    } catch (e) {
+      // Details are in the file's processing log; the message is shown in the table.
+      console.error(`[lease ${file.id.slice(0, 8)}] retry: failed`, e)
     }
     setBusyFiles(({ [file.id]: _, ...rest }) => rest)
     await load()
@@ -123,6 +143,7 @@ export function LeaseAbstraction() {
     })
 
   const filesById = new Map(files.map((f) => [f.id, f]))
+  const logFile = logFileId ? filesById.get(logFileId) : undefined
   const progress = upload ? describeStage(upload.stage) : null
 
   return (
@@ -132,6 +153,18 @@ export function LeaseAbstraction() {
         Upload lease PDFs. Scanned pages are converted to text with OCR, then AI splits bundled files into the main
         lease, amendments and addenda, and extracts the key terms.
       </p>
+
+      {setupIssues.length > 0 && (
+        <div className="setup-warning" role="alert">
+          <strong>Setup incomplete</strong>
+          <ul>
+            {setupIssues.map((issue) => (
+              <li key={issue.key}>{issue.message}</li>
+            ))}
+          </ul>
+          <span className="muted small">Fix these, then click Refresh below to re-check.</span>
+        </div>
+      )}
 
       <section
         className={`card dropzone${dragging ? ' dragging' : ''}${upload ? ' busy' : ''}`}
@@ -174,7 +207,16 @@ export function LeaseAbstraction() {
       </section>
       {uploadError && <p className="error">{uploadError}</p>}
 
-      <h2>Uploaded files</h2>
+      <div className="section-header">
+        <h2>Uploaded files</h2>
+        <div className="section-actions">
+          {lastRefreshed && <span className="muted small">Updated {lastRefreshed.toLocaleTimeString()}</span>}
+          <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={refreshing} title="Reload the uploaded files table">
+            <span className={`refresh-icon${refreshing ? ' spinning' : ''}`} aria-hidden="true">⟳</span>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+      </div>
       {loadError && <p className="error">{loadError}</p>}
       {loading ? (
         <p className="muted">Loading…</p>
@@ -222,13 +264,21 @@ export function LeaseAbstraction() {
                       <td>{docs.filter((d) => d.doc_type === 'main_lease').length}</td>
                       <td>
                         <StatusBadge file={file} busy={busy} />
-                        {file.status === 'failed' && file.error && <div className="error small">{file.error}</div>}
+                        {busy && <div className="muted small stage-detail">{describeStage(busy).text}</div>}
+                        {!busy && file.status === 'failed' && file.error && <div className="error small">{file.error}</div>}
                       </td>
                       <td className="nowrap">{new Date(file.created_at).toLocaleString()}</td>
                       <td className="actions" onClick={(e) => e.stopPropagation()}>
-                        {(file.status === 'failed' || stalled) && (
-                          <button className="btn btn-ghost btn-sm" onClick={() => retry(file)}>Retry</button>
+                        {busy ? (
+                          <button className="btn btn-ghost btn-sm" disabled>
+                            <Spinner /> Retrying…
+                          </button>
+                        ) : (
+                          (file.status === 'failed' || stalled) && (
+                            <button className="btn btn-ghost btn-sm" onClick={() => retry(file)}>Retry</button>
+                          )
                         )}
+                        <button className="btn btn-ghost btn-sm" onClick={() => setLogFileId(file.id)}>Log</button>
                         <button
                           className="btn btn-ghost btn-sm"
                           onClick={() => openStoredPdf(file.storage_path).catch((e) => alert(e.message))}
@@ -260,22 +310,46 @@ export function LeaseAbstraction() {
       )}
 
       {viewing && <TextViewer lease={viewing} onClose={() => setViewing(null)} />}
+      {logFile && (
+        <LogViewer
+          file={logFile}
+          live={!FINAL_STATUSES.has(logFile.status) || !!busyFiles[logFile.id]}
+          onClose={() => setLogFileId(null)}
+        />
+      )}
     </main>
   )
 }
 
+function Spinner() {
+  return <span className="spinner" role="status" aria-label="Processing" />
+}
+
+const BUSY_LABELS: Record<Stage['stage'], string> = {
+  retrying: 'Retrying',
+  extracting: 'Extracting text',
+  uploading: 'Uploading',
+  analyzing: 'Analyzing',
+  splitting: 'Splitting',
+}
+
 function StatusBadge({ file, busy }: { file: LeaseFile; busy?: Stage }) {
-  if (busy) return <span className="badge badge-pending">{describeStage(busy).text.split(':')[0]}</span>
+  const pending = (label: string) => (
+    <span className="badge badge-pending">
+      <Spinner /> {label}
+    </span>
+  )
+  if (busy) return pending(BUSY_LABELS[busy.stage])
   switch (file.status) {
     case 'completed':
-      return <span className="badge badge-success">Completed</span>
+      return <span className="badge badge-success">✓ Completed</span>
     case 'failed':
-      return <span className="badge badge-error">Failed</span>
+      return <span className="badge badge-error">✕ Failed</span>
     case 'analyzing':
-      return <span className="badge badge-pending">Analyzing</span>
+      return pending('Analyzing')
     case 'analyzed':
-      return <span className="badge badge-pending">Splitting</span>
+      return pending('Splitting')
     default:
-      return <span className="badge badge-pending">Processing</span>
+      return pending('Processing')
   }
 }
