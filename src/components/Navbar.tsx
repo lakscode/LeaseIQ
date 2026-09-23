@@ -18,6 +18,7 @@ export function Navbar() {
         {session ? (
           <>
             <Link to="/dashboard">Dashboard</Link>
+            <Link to="/leases">Lease Abstraction</Link>
             <button className="btn btn-ghost" onClick={signOut}>Sign out</button>
           </>
         ) : (
