@@ -1,0 +1,76 @@
+label_id,name,source,examples
+66163264081a1a5f9a884e60,Additional Rent,training file: Additional Rent,58
+5d51128d18b40d3e38ed4354,Agreement Description,training file: Agreement Description,125
+63f37d2c0d2f74adc82f4109,Alterations,training file: Alterations,123
+6673bef74b464d4368fbbcf7,AROE,training file: AROE,11
+64217b1a275caef553ece40f,Assignability and Exclusivity,training file: Assignability and Exclusivity,11
+63f37d2c0d2f74adc82f4103,Assignment and Subleasing,training file: Assignment and Subleasing,180
+5d51128d18b40d3e38ed435a,Audits,training file: audits,19
+63f37d2c0d2f74adc82f4101,Base Rent,training file: Base Rent,110
+68c116980a9fcc90b52cf86e,Capital Expenditures,training file: Capex,281
+64217b1a275caef553ece40d,Co-Tenancy,training file: Co-Tenancy,6
+65029c689b2f3fa65d3a0a79,Common Area Maintenance,training file: common_area_maintenance,47
+5d51128d18b40d3e38ed435c,Confidentiality,inferred from sample clauses,5
+667514470a5cb33d86ee3793,Contingency,training file: Contingency,13
+6673befc4b464d4368fbbcf8,Contractual Obligations,training file: Contractual Obligations,3
+66163264081a1a5f9a884e5f,Death and Disability,training file: Death_and_Disability,11
+634657eae07375a8a0ea2344,Dispute Resolution,inferred from sample clauses,1
+5d51128d18b40d3e38ed4353,Document Title,inferred from sample clauses,88
+64217b1a275caef553ece411,Early Termination,training file: Early Termination,31
+68c01cf286f264baffa51891,Environmental and Hazardous Materials,training file: Environmental Hazardous Materials,150
+64217b1a275caef553ece410,Estoppel,training file: Estoppel,52
+634657eae07375a8a0ea2345,Events of Default,training file: Events of Default,343
+66163264081a1a5f9a884e63,Exclusive Rights,training file: Exclusive Rights,19
+64217b1a275caef553ece40e,Expansion Rights,training file: Expansion rights,45
+6673d0bcd353dc605d4eb7a5,Financial Statements,training file: Financial Statements,7
+5d51128d18b40d3e38ed4364,Force Majeure,inferred from sample clauses,14
+6423e1354339dc1e236cd551,Go Dark,training file: Go Dark,9
+5d51128d18b40d3e38ed4366,Governing Law,inferred from sample clauses,5
+695f4e01d851e30714c7df61,Gross Sales,training file: Gross Sales Receipts,135
+66163264081a1a5f9a884e61,Gross-Up,training file: Gross UP,16
+6628d12a8d0255a2cce76154,Ground Lease Restrictions,training file: Ground Lease Restrictions,12
+66163264081a1a5f9a884e62,Guaranty,training file: Guaranty,42
+63f37d2c0d2f74adc82f4106,Holdover,training file: HoldOver,53
+68c115a10a9fcc90b52cf86b,HVAC,training file: HVAC,213
+5d51128d18b40d3e38ed435f,Indemnity,inferred from sample clauses,63
+6673bf064b464d4368fbbcfa,Information Technology,training file: Information Technology,10
+5d51128d18b40d3e38ed4369,Insurance,training file: insurance,224
+6673cd03477270077cde1272,Landlord Liens,training file: Landlord Liens,41
+653b95e68d8833a361063019,Landlord Rights,training file: lanlord_rights,122
+671737f358920c129b4a72b7,Landlord's Work,inferred from sample clauses,3
+63f37d2c0d2f74adc82f4102,Late Charges,inferred from sample clauses,53
+5d51128d18b40d3e38ed4358,Lease Term,training file: Lease Term,121
+64217b1a275caef553ece405,Leased Premises,training file: Leased Premises,94
+5d51128d18b40d3e38ed4361,Notices,inferred from sample clauses,6
+64217b1a275caef553ece40c,Operating Expenses,training file: Operating Expenses,428
+647988e74eb09eacf08e67c2,Option to Purchase,inferred from sample clauses,6
+64217b1a275caef553ece408,Parking Requirements,training file: Parking Requirements,191
+682ae32ff098740272f11c70,Percentage Rent,training file: Percentage Rent,92
+64217b1a275caef553ece406,Permitted Uses,training file: Permitted Uses,118
+6503fe5c0d9234077df625f3,Possession,training file: posession,9
+66fa76c76bf9d16cddb69e47,Purchase Option,inferred from sample clauses,3
+6673bf104b464d4368fbbcfc,Radius Restrictions,training file: Radius Restrictions,7
+66fa76d16bf9d16cddb69e48,Relocation Right,inferred from sample clauses,6
+63f37d2c0d2f74adc82f4107,Renewal,training file: Renewal,81
+64217b1a275caef553ece40a,Rental Concessions,training file: Rental Concessions,28
+64217b1a275caef553ece40b,Repairs,training file: Repairs,308
+652f68f5446d273dc04408f5,Right of First Offer,training file: Right_of_first_offer,14
+649e62902b1abbbef844d368,Right of First Refusal,training file: Right of First Refusal,18
+649e62902b1abbbef844d369,Right to Purchase,training file: Right to Purchase,12
+649e62902b1abbbef844d367,Right to Relocate,training file: Right to Relocate,10
+68c115d40a9fcc90b52cf86c,Roof,training file: Roof,316
+6673bf014b464d4368fbbcf9,Sales Reporting,training file: Sales Reporting,4
+63f37d2c0d2f74adc82f4104,Security Deposit,training file: Security Deposit,167
+6486a4b898f51f4d2555f608,Signage,training file: Pylon / signage,347
+6678ff03a9aefb6552287dac,Store Operation,training file: Store Operation,10
+63f37d2c0d2f74adc82f4105,Subordination,training file: Subordination,75
+66447de751cf3210d3452f00,Surrender,training file: surrender,38
+68c116460a9fcc90b52cf86d,Sustainability,training file: Sustainability,167
+5d876e970e9a46ad8d7b0307,Taxes,training file: Taxes,299
+66447de751cf3210d3452f01,Tenant Improvements,training file: Tenant_improvements,55
+653b95e68d8833a361063018,Tenant Rights,training file: tenant_rights,20
+671737d658920c129b4a72b6,Tenant's Work,inferred from sample clauses,3
+5d51128d18b40d3e38ed4359,Termination,training file: Termination,147
+649e62902b1abbbef844d36a,Termination Options,training file: Termination options,21
+6673cd08477270077cde1273,Trade Name,training file: Trade Name,14
+66fa76dc6bf9d16cddb69e49,Utilities,training file: Utilities,304

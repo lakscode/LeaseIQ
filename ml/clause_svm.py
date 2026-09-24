@@ -2,9 +2,10 @@
 
 Data: every .xlsx in src/test_data has two unlabelled columns, the clause text
 and a fastText-style label (``__label__<id>``). Files ending in ``test_data``
-are held out for evaluation; everything else is training data. Label ids are
-named after the single-category training file they come from (e.g. ``Base
-Rent.xlsx``); ids that only occur in mixed files keep their raw id.
+are held out for evaluation; everything else is training data. Display names
+for label ids come from ml/clause_labels.csv (edit it, then re-run ``export``);
+ids missing from it are named after their single-category training file, or
+keep their raw id.
 
     python ml/clause_svm.py train                 # tune, evaluate, save model
     python ml/clause_svm.py predict "Tenant shall pay ..."
@@ -19,6 +20,7 @@ but made the exported model ~20x larger.
 
 import argparse
 import base64
+import csv
 import json
 import re
 import sys
@@ -39,6 +41,7 @@ DATA_DIR = ROOT / 'src' / 'test_data'
 OUT_DIR = Path(__file__).resolve().parent / 'models'
 MODEL_PATH = OUT_DIR / 'clause_svm.joblib'
 REPORT_PATH = OUT_DIR / 'clause_svm_report.json'
+LABELS_PATH = Path(__file__).resolve().parent / 'clause_labels.csv'
 EXPORT_PATH = ROOT / 'supabase' / 'functions' / 'analyze-lease' / 'clause_model.json'
 
 
@@ -73,7 +76,18 @@ def label_names(df: pd.DataFrame) -> dict[str, str]:
     for file, row in per_file[per_file['nunique'] == 1].iterrows():
         names.setdefault(row['first'], []).append(file)
     named = {label: ' / '.join(files) for label, files in names.items()}
+    named.update(label_overrides())
+    missing = sorted(set(df.label) - set(named))
+    if missing:
+        print(f'warning: no name for {len(missing)} label id(s), add them to {LABELS_PATH.name}: {missing}')
     return {label: named.get(label, label) for label in df.label.unique()}
+
+
+def label_overrides() -> dict[str, str]:
+    if not LABELS_PATH.exists():
+        return {}
+    with LABELS_PATH.open(encoding='utf-8', newline='') as f:
+        return {row['label_id']: row['name'].strip() for row in csv.DictReader(f) if row['name'].strip()}
 
 
 def build_model(C: float = 1.0):
@@ -130,9 +144,13 @@ def train(args):
     print(f'saved {MODEL_PATH.relative_to(ROOT)} and {REPORT_PATH.relative_to(ROOT)}')
 
 
-def predict(args):
+def load_bundle():
     bundle = joblib.load(MODEL_PATH)
-    model, names = bundle['model'], bundle['names']
+    return bundle['model'], {**bundle['names'], **label_overrides()}
+
+
+def predict(args):
+    model, names = load_bundle()
     texts = args.text or []
     if args.file:
         texts += [line for line in Path(args.file).read_text(encoding='utf-8').splitlines() if line.strip()]
@@ -148,8 +166,7 @@ def predict(args):
 
 
 def export(args):
-    bundle = joblib.load(MODEL_PATH)
-    model, names = bundle['model'], bundle['names']
+    model, names = load_bundle()
     vectorizer, svm = model[0], model[-1]
     vocab = sorted(vectorizer.vocabulary_, key=vectorizer.vocabulary_.get)
     # Weights are quantised to int8 per class; this changes test accuracy by < 1 point.
