@@ -97,6 +97,7 @@ export const ABSTRACT_LABELS: Record<string, string> = {
   premises_address: 'Premises',
   rentable_area: 'Rentable area',
   commencement_date: 'Commencement',
+  term_end_date: "Term End Date",
   expiration_date: 'Expiration',
   term: 'Term',
   base_rent: 'Base rent',
