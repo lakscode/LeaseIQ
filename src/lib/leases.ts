@@ -113,6 +113,7 @@ export type Stage =
   | { stage: 'extracting'; page: number; pageCount: number; ocr: boolean }
   | { stage: 'uploading' }
   | { stage: 'retrying' }
+  | { stage: 'reanalyzing' }
   | { stage: 'analyzing' }
   | { stage: 'splitting'; done: number; total: number }
 
@@ -218,18 +219,26 @@ export async function uploadLeaseFile(file: File, onStage: (s: Stage) => void): 
   }
 }
 
-/** Re-runs whatever did not finish for a file (text extraction, analysis and/or splitting). */
-export async function retryLeaseFile(file: LeaseFile, onStage: (s: Stage) => void): Promise<void> {
+/**
+ * Re-runs whatever did not finish for a file (text extraction, analysis and/or splitting).
+ * With `reanalyze`, always re-runs the AI analysis (replacing the file's documents and
+ * clauses), reusing the saved page text when it is complete.
+ */
+export async function retryLeaseFile(
+  file: LeaseFile,
+  onStage: (s: Stage) => void,
+  { reanalyze = false }: { reanalyze?: boolean } = {},
+): Promise<void> {
   const log = new FileLogger(file.id)
   const started = performance.now()
-  log.info('retry', `Retry clicked for "${file.file_name}" (current status: ${file.status})`, {
+  log.info('retry', `${reanalyze ? 'Re-analyze' : 'Retry'} clicked for "${file.file_name}" (current status: ${file.status})`, {
     status: file.status,
     previousError: file.error,
     pageCount: file.page_count,
   })
 
   try {
-    onStage({ stage: 'retrying' })
+    onStage({ stage: reanalyze ? 'reanalyzing' : 'retrying' })
     log.info('retry', 'Downloading original PDF from storage', { path: file.storage_path })
     const downloadStarted = performance.now()
     const { data: blob, error } = await supabase.storage.from(BUCKET).download(file.storage_path)
@@ -244,9 +253,10 @@ export async function retryLeaseFile(file: LeaseFile, onStage: (s: Stage) => voi
     if (countError) log.warn('retry', `Could not count saved pages: ${countError.message}`)
     const savedPages = count ?? 0
     const needsExtraction = savedPages < file.page_count || file.page_count === 0
+    const splitOnly = file.status === 'analyzed' && !reanalyze
     const plan = needsExtraction
       ? 're-extract text, then analyze and split'
-      : file.status === 'analyzed'
+      : splitOnly
         ? 'split PDF only (analysis already finished)'
         : 're-run AI analysis, then split'
     log.info('retry', `Retry plan: ${plan}`, { savedPages, expectedPages: file.page_count, status: file.status })
@@ -260,7 +270,7 @@ export async function retryLeaseFile(file: LeaseFile, onStage: (s: Stage) => voi
       log.info('retry', `Reusing saved text for all ${savedPages} page(s); skipping extraction and OCR`)
     }
 
-    if (file.status === 'analyzed' && !needsExtraction) {
+    if (splitOnly && !needsExtraction) {
       await splitAndStore(file.id, file.storage_path, bytes, onStage, log)
     } else {
       await analyzeAndSplit(file.id, file.storage_path, bytes, onStage, log)

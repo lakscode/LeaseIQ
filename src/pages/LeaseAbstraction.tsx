@@ -28,6 +28,8 @@ function describeStage(s: Stage): { text: string; percent?: number } {
       return { text: 'Uploading…' }
     case 'retrying':
       return { text: 'Retrying: downloading original PDF…' }
+    case 'reanalyzing':
+      return { text: 'Re-analyzing: downloading original PDF…' }
     case 'analyzing':
       return { text: 'Analyzing with AI: finding the main lease, amendments, addendum and commencement letters, and abstracting key terms…' }
     case 'splitting':
@@ -112,13 +114,19 @@ export function LeaseAbstraction() {
     handleFiles(e.dataTransfer.files)
   }
 
-  const retry = async (file: LeaseFile) => {
-    setBusyFiles((b) => ({ ...b, [file.id]: { stage: 'retrying' } }))
+  const retry = async (file: LeaseFile, reanalyze = false) => {
+    if (
+      reanalyze &&
+      !confirm(`Re-analyze "${file.file_name}"? Its documents and clauses will be replaced with the results of a new AI analysis.`)
+    ) {
+      return
+    }
+    setBusyFiles((b) => ({ ...b, [file.id]: { stage: reanalyze ? 'reanalyzing' : 'retrying' } }))
     try {
-      await retryLeaseFile(file, (stage) => setBusyFiles((b) => ({ ...b, [file.id]: stage })))
+      await retryLeaseFile(file, (stage) => setBusyFiles((b) => ({ ...b, [file.id]: stage })), { reanalyze })
     } catch (e) {
       // Details are in the file's processing log; the message is shown in the table.
-      console.error(`[lease ${file.id.slice(0, 8)}] retry: failed`, e)
+      console.error(`[lease ${file.id.slice(0, 8)}] ${reanalyze ? 're-analyze' : 'retry'}: failed`, e)
     }
     setBusyFiles(({ [file.id]: _, ...rest }) => rest)
     await load()
@@ -271,11 +279,19 @@ export function LeaseAbstraction() {
                       <td className="actions" onClick={(e) => e.stopPropagation()}>
                         {busy ? (
                           <button className="btn btn-ghost btn-sm" disabled>
-                            <Spinner /> Retrying…
+                            <Spinner /> {BUSY_LABELS[busy.stage]}…
                           </button>
+                        ) : file.status === 'failed' || stalled ? (
+                          <button className="btn btn-ghost btn-sm" onClick={() => retry(file)}>Retry</button>
                         ) : (
-                          (file.status === 'failed' || stalled) && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => retry(file)}>Retry</button>
+                          file.status === 'completed' && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => retry(file, true)}
+                              title="Run the AI analysis again and replace this file's documents and clauses"
+                            >
+                              Re-analyze
+                            </button>
                           )
                         )}
                         <button className="btn btn-ghost btn-sm" onClick={() => setLogFileId(file.id)}>Log</button>
@@ -327,6 +343,7 @@ function Spinner() {
 
 const BUSY_LABELS: Record<Stage['stage'], string> = {
   retrying: 'Retrying',
+  reanalyzing: 'Re-analyzing',
   extracting: 'Extracting text',
   uploading: 'Uploading',
   analyzing: 'Analyzing',
