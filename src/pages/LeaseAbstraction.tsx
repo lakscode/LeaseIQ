@@ -29,7 +29,7 @@ function describeStage(s: Stage): { text: string; percent?: number } {
     case 'retrying':
       return { text: 'Retrying: downloading original PDF…' }
     case 'analyzing':
-      return { text: 'Analyzing with AI: finding the main lease, amendments and addenda, and abstracting key terms…' }
+      return { text: 'Analyzing with AI: finding the main lease, amendments, addendum and commencement letters, and abstracting key terms…' }
     case 'splitting':
       return { text: `Splitting into separate documents (${s.done + 1} of ${s.total})…`, percent: Math.round(((s.done + 1) / s.total) * 100) }
   }
@@ -151,7 +151,7 @@ export function LeaseAbstraction() {
       <h1>Lease Abstraction</h1>
       <p className="muted">
         Upload lease PDFs. Scanned pages are converted to text with OCR, then AI splits bundled files into the main
-        lease, amendments and addenda, and extracts the key terms.
+        lease, amendments, addendum and commencement letters, and extracts the key terms.
       </p>
 
       {setupIssues.length > 0 && (

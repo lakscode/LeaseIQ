@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { LeaseClauses } from './LeaseClauses'
 import { ABSTRACT_LABELS, DOC_TYPE_LABELS, openStoredPdf, type Lease, type LeaseFile } from '../lib/leases'
 
 type Props = {
@@ -134,6 +135,7 @@ function LeaseRow({
             ) : (
               <p className="muted">No key terms were found in this document.</p>
             )}
+            <LeaseClauses leaseId={lease.id} />
           </td>
         </tr>
       )}

@@ -24,10 +24,7 @@ export type DocType =
   | 'main_lease'
   | 'amendment'
   | 'addendum'
-  | 'extension'
-  | 'assignment'
-  | 'sublease'
-  | 'guaranty'
+  | 'commencement_letter'
   | 'other'
 
 export type Lease = {
@@ -48,6 +45,33 @@ export type Lease = {
   created_at: string
 }
 
+export type ClausePrediction = { labelId: string; label: string; score: number }
+
+export type LeaseClause = {
+  id: number
+  lease_id: string
+  clause_index: number
+  page_number: number
+  text: string
+  label_id: string
+  label: string
+  score: number
+  alternatives: ClausePrediction[]
+}
+
+/** SVM scores below this are right less than half the time (ml/clause_svm.py). */
+export const LOW_CONFIDENCE_SCORE = 0
+
+export async function fetchLeaseClauses(leaseId: string): Promise<LeaseClause[]> {
+  const { data, error } = await supabase
+    .from('lease_clauses')
+    .select('*')
+    .eq('lease_id', leaseId)
+    .order('clause_index')
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export type LeaseFileLog = {
   id: number
   file_id: string
@@ -63,10 +87,7 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   main_lease: 'Main lease',
   amendment: 'Amendment',
   addendum: 'Addendum',
-  extension: 'Extension',
-  assignment: 'Assignment',
-  sublease: 'Sublease',
-  guaranty: 'Guaranty',
+  commencement_letter: 'Commencement letter',
   other: 'Other',
 }
 

@@ -1,6 +1,7 @@
 // Analyzes an uploaded lease file with Claude: splits it into its component
 // documents (main lease, amendments, addenda, ...), links each child to its
-// main lease, and abstracts the key lease terms.
+// main lease, and abstracts the key lease terms. Each document's clauses are
+// then labelled with the SVM clause classifier (clause_svm.ts).
 //
 // POST { fileId } -> 202. The work continues in the background; the browser
 // polls lease_files.status until it becomes 'analyzed' or 'failed'.
@@ -8,12 +9,14 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import Anthropic from 'npm:@anthropic-ai/sdk@0.128.0'
+import { classifyClause, loadClauseModel, splitClauses, type ClauseModel, type ClauseModelJson } from './clause_svm.ts'
+import clauseModelJson from './clause_model.json' with { type: 'json' }
 
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5'
 // ~1M token context; leave room for the prompt and output.
 const MAX_INPUT_CHARS = 2_500_000
 
-const DOC_TYPES = ['main_lease', 'amendment', 'addendum', 'extension', 'assignment', 'sublease', 'guaranty', 'other'] as const
+const DOC_TYPES = ['main_lease', 'amendment', 'addendum', 'commencement_letter', 'other'] as const
 type DocType = (typeof DOC_TYPES)[number]
 
 const ABSTRACT_FIELDS = [
@@ -34,8 +37,9 @@ const ABSTRACT_FIELDS = [
   'changes_made',
 ] as const
 
-// Bump when changing this function; returned in the x-function-version header.
-const FUNCTION_VERSION = '5'
+// Bump when changing this function, together with EXPECTED_FUNCTION_VERSION in
+// src/lib/health.ts; returned in the x-function-version header.
+const FUNCTION_VERSION = '7'
 
 const OUTPUT_SCHEMA = {
   type: 'object',
@@ -82,13 +86,10 @@ Your job:
 1. Split the PDF into its separate documents. Every page belongs to exactly one document. Documents are contiguous page ranges, listed in page order, without gaps or overlaps, together covering page 1 through the last page. Exhibits, schedules and riders that are attached to a document stay part of that document; only split out a document that was separately executed or stands on its own.
 2. Classify each document with doc_type:
    - main_lease: the original lease agreement
-   - amendment: a numbered or titled amendment that modifies a lease
-   - addendum: an addendum or rider added to a lease
-   - extension: a renewal or extension agreement
-   - assignment: an assignment or assumption of a lease
-   - sublease: a sublease agreement
-   - guaranty: a lease guaranty
-   - other: anything else (commencement date memo, SNDA, estoppel, side letter, notice, ...)
+   - amendment: an agreement that modifies an existing lease, whether titled an amendment or not (e.g. "First Amendment to Lease", a renewal, extension or expansion agreement)
+   - addendum: an addendum or rider added to a lease that was separately executed
+   - commencement_letter: a commencement date letter, memorandum or certificate confirming the commencement, rent commencement or expiration dates
+   - other: anything else (assignment, sublease, guaranty, SNDA, estoppel, side letter, notice, ...)
 3. Link every document that is not a main_lease to the main lease it belongs to:
    - parent_index: the 0-based index, in your documents array, of that main lease when it is in this PDF; otherwise -1.
    - existing_parent_id: when the main lease is not in this PDF, the id of the matching lease from <existing_main_leases>, matched on landlord, tenant and premises; otherwise an empty string. Only use an id from that list.
@@ -348,9 +349,60 @@ async function analyzeFile(supabase: SupabaseClient, fileId: string, pageCount: 
     await log('info', 'save', `Saved ${batch.length} ${label} document(s)`, { ms: elapsed(stepStarted) })
   }
 
+  // Clause labels are extra detail; a failure here should not fail the analysis.
+  try {
+    await classifyClauses(supabase, rows, pages, log)
+  } catch (err) {
+    await log('warn', 'clauses', `Clause classification failed: ${err instanceof Error ? err.message : String(err)}`, errorData(err))
+  }
+
   const { error: updateError } = await supabase.from('lease_files').update({ status: 'analyzed' }).eq('id', fileId)
   if (updateError) throw new Error(`Setting status to analyzed failed: ${updateError.message}`)
   await log('info', 'status', 'File status set to analyzed (browser will now split the PDF)')
+}
+
+// ---------- Clause classification ----------
+
+let clauseModel: ClauseModel | null = null
+const CLAUSE_BATCH = 500
+
+async function classifyClauses(
+  supabase: SupabaseClient,
+  rows: LeaseRow[],
+  pages: Array<{ page_number: number; text: string }>,
+  log: Log,
+) {
+  const started = Date.now()
+  clauseModel ??= loadClauseModel(clauseModelJson as ClauseModelJson)
+
+  const clauseRows = rows.flatMap((row) => {
+    const docPages = pages.filter((p) => p.page_number >= row.page_start && p.page_number <= row.page_end)
+    return splitClauses(docPages).map((clause) => {
+      const [best, ...alternatives] = classifyClause(clauseModel!, clause.text)
+      return {
+        lease_id: row.id,
+        clause_index: clause.index,
+        page_number: clause.page,
+        text: clause.text,
+        label_id: best.labelId,
+        label: best.label,
+        score: best.score,
+        alternatives,
+      }
+    })
+  })
+
+  for (let i = 0; i < clauseRows.length; i += CLAUSE_BATCH) {
+    const { error } = await supabase.from('lease_clauses').insert(clauseRows.slice(i, i + CLAUSE_BATCH))
+    if (error) throw new Error(`Saving clauses failed: ${error.message}`)
+  }
+  const labels: Record<string, number> = {}
+  for (const c of clauseRows) labels[c.label] = (labels[c.label] ?? 0) + 1
+  await log('info', 'clauses', `Classified ${clauseRows.length} clause(s) across ${rows.length} document(s)`, {
+    lowConfidence: clauseRows.filter((c) => c.score < 0).length,
+    labels,
+    ms: elapsed(started),
+  })
 }
 
 const HEARTBEAT_MS = 20_000

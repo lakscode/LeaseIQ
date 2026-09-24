@@ -6,7 +6,7 @@ Vite + React + TypeScript app with Supabase email/password auth and a Lease Abst
 - `/login` — log in / sign up
 - `/forgot-password` — request a password reset email
 - `/reset-password` — set a new password (opened from the reset email link)
-- `/dashboard` — counts of uploaded files, lease documents, main leases, amendments and addenda
+- `/dashboard` — counts of uploaded files, lease documents, main leases, amendments and addendum
 - `/leases` — Lease Abstraction: upload PDFs and browse the extracted documents
 
 ## How Lease Abstraction works

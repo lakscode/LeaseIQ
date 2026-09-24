@@ -9,6 +9,7 @@ type Stats = {
   mainLeases: number
   amendments: number
   addenda: number
+  commencementLetters: number
   otherChildren: number
   scanned: number
 }
@@ -33,11 +34,12 @@ export function Dashboard() {
       countRows('leases', (q) => q.eq('doc_type', 'main_lease')),
       countRows('leases', (q) => q.eq('doc_type', 'amendment')),
       countRows('leases', (q) => q.eq('doc_type', 'addendum')),
-      countRows('leases', (q) => q.not('doc_type', 'in', '(main_lease,amendment,addendum)')),
+      countRows('leases', (q) => q.eq('doc_type', 'commencement_letter')),
+      countRows('leases', (q) => q.eq('doc_type', 'other')),
       countRows('lease_files', (q) => q.eq('is_scanned', true)),
     ]).then(
-      ([files, documents, mainLeases, amendments, addenda, otherChildren, scanned]) =>
-        setStats({ files, documents, mainLeases, amendments, addenda, otherChildren, scanned }),
+      ([files, documents, mainLeases, amendments, addenda, commencementLetters, otherChildren, scanned]) =>
+        setStats({ files, documents, mainLeases, amendments, addenda, commencementLetters, otherChildren, scanned }),
       (e) => setError(e.message),
     )
   }, [])
@@ -48,7 +50,8 @@ export function Dashboard() {
     ['Main leases', stats?.mainLeases],
     ['Amendments', stats?.amendments],
     ['Addenda', stats?.addenda],
-    ['Other documents', stats?.otherChildren, 'Extensions, assignments, guaranties…'],
+    ['Commencement letters', stats?.commencementLetters],
+    ['Other documents', stats?.otherChildren, 'Assignments, guaranties, SNDAs…'],
   ]
 
   return (

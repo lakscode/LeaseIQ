@@ -125,7 +125,7 @@ input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .badge-main_lease { background: #1e3a5f; color: #93c5fd; }
 .badge-amendment { background: #3b2f5c; color: #c4b5fd; }
 .badge-addendum { background: #4a3514; color: #fcd34d; }
-.badge-extension, .badge-assignment, .badge-sublease, .badge-guaranty { background: #173c3a; color: #5eead4; }
+.badge-commencement_letter { background: #173c3a; color: #5eead4; }
 .badge-ocr { background: #4a2e14; color: #fdba74; margin-left: 0.4rem; }
 .badge-success { background: #123d2a; color: var(--accent); }
 .badge-error { background: #4a1d1d; color: var(--error); }
@@ -175,3 +175,12 @@ input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .setup-warning { margin-top: 1rem; padding: 0.9rem 1.1rem; border: 1px solid #a16207; background: #2a2110; color: #fcd34d; border-radius: 10px; }
 .setup-warning ul { margin: 0.4rem 0 0.4rem 1.1rem; padding: 0; }
 .setup-warning li { margin: 0.2rem 0; color: var(--text); }
+
+/* ---------- Clauses ---------- */
+.clauses { margin-top: 1rem; }
+.clauses h4 { margin: 0 0 0.5rem; }
+.clause-group { border-top: 1px solid var(--border); padding: 0.4rem 0; }
+.clause-group summary { cursor: pointer; font-weight: 600; }
+.clause { padding: 0.5rem 0 0 1rem; }
+.clause p { margin: 0.2rem 0 0; white-space: pre-wrap; }
+.clause-uncertain { margin-left: 0.5rem; font-weight: 500; }
