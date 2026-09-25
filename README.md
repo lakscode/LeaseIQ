@@ -6,8 +6,10 @@ Vite + React + TypeScript app with Supabase email/password auth and a Lease Abst
 - `/login` — log in / sign up
 - `/forgot-password` — request a password reset email
 - `/reset-password` — set a new password (opened from the reset email link)
-- `/dashboard` — counts of uploaded files, lease documents, main leases, amendments and addendum
+- `/dashboard` — active, renewed and expired leases, leases expiring in the next 12 months, and document counts
 - `/leases` — Lease Abstraction: upload PDFs and browse the extracted documents
+- `/leases/:id` — details of one document (opened with **Details**): property, rent, dates, options, related documents, alerts and clauses
+- `/settings` — maintenance actions, such as recreating the `lease_clauses` table
 
 ## How Lease Abstraction works
 
@@ -41,24 +43,37 @@ Every step is logged in three places:
 2. Copy `.env.example` to `.env` and fill in the URL and anon key from **Project Settings → API**.
 3. In **Authentication → URL Configuration**, set the Site URL to `http://localhost:5173`
    and add `http://localhost:5173/**` to **Redirect URLs** (needed for the password reset link).
-4. Apply the database migration, set the Claude API key and deploy the Edge Function:
+4. Put the Claude API key in `supabase/functions/analyze-lease/config.ts` (copy
+   `config.example.ts` next to it; `config.ts` is gitignored so the key is never pushed):
+
+   ```ts
+   export const config = {
+     anthropicApiKey: 'sk-ant-...',
+     anthropicModel: 'claude-opus-5',
+     anthropicBaseUrl: 'https://api.anthropic.com',
+   }
+   ```
+
+5. Apply the database migration, then deploy the Edge Function:
 
    ```bash
    npx supabase login
    npx supabase init            # only once; creates supabase/config.toml
    npx supabase link --project-ref <your-project-ref>
    npx supabase db push
-   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-   npx supabase functions deploy analyze-lease
+   npm run deploy               # deploys analyze-lease together with config.ts
    ```
+
+   Redeploy after changing `config.ts`. Function secrets named `ANTHROPIC_API_KEY`,
+   `ANTHROPIC_MODEL` or `ANTHROPIC_BASE_URL` override the file when set.
 
    Without the CLI: paste `supabase/migrations/*.sql` into the SQL Editor, create an Edge
    Function named `analyze-lease` from `supabase/functions/analyze-lease/index.ts`, and add
    `ANTHROPIC_API_KEY` under **Edge Functions → Secrets**.
 
-   Never put the Anthropic key in `.env` — `VITE_` variables are shipped to the browser.
+   Never put the Anthropic key in the root `.env` — `VITE_` variables are shipped to the browser.
 
-5. Run:
+6. Run:
 
    ```bash
    npm install
@@ -73,4 +88,4 @@ By default Supabase requires email confirmation on sign-up. Turn it off under
 - PDFs up to 50 MB.
 - Edge Functions have a wall-clock limit (150 s on the free plan, 400 s on paid plans).
   Very long bundles can hit it; split them into smaller PDFs if analysis times out.
-- The model defaults to `claude-opus-5`; override with the `ANTHROPIC_MODEL` function secret.
+- The model defaults to `claude-opus-5`; override with `anthropicModel` in `config.ts`.

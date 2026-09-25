@@ -247,7 +247,7 @@ export function LeaseAbstraction() {
               </tr>
             </thead>
             <tbody>
-              {files.map((file) => {
+              {files.map((file, i) => {
                 const docs = leases.filter((l) => l.file_id === file.id)
                 const busy = busyFiles[file.id]
                 const isUploading = upload !== null && !FINAL_STATUSES.has(file.status)
@@ -255,7 +255,7 @@ export function LeaseAbstraction() {
                 const isOpen = expanded.has(file.id)
                 return (
                   <Fragment key={file.id}>
-                    <tr className="file-row" onClick={() => toggle(file.id)}>
+                    <tr className={`file-row${i % 2 ? ' file-row-alt' : ''}`} onClick={() => toggle(file.id)}>
                       <td className="chevron">{isOpen ? '▾' : '▸'}</td>
                       <td className="doc-title">{file.file_name}</td>
                       <td>{file.page_count}</td>

@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
-import { LeaseClauses } from './LeaseClauses'
-import { ABSTRACT_LABELS, DOC_TYPE_LABELS, openStoredPdf, type Lease, type LeaseFile } from '../lib/leases'
+import { Link } from 'react-router-dom'
+import { DOC_TYPE_LABELS, openStoredPdf, type Lease, type LeaseFile } from '../lib/leases'
 
 type Props = {
   file: LeaseFile
@@ -83,9 +83,7 @@ function LeaseRow({
   note?: string
   onViewText: (lease: Lease) => void
 }) {
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const abstractEntries = Object.entries(ABSTRACT_LABELS).filter(([key]) => lease.abstract?.[key])
 
   const openPdf = () => {
     if (!lease.storage_path) return
@@ -112,33 +110,11 @@ function LeaseRow({
         <td>{lease.tenant ?? '—'}</td>
         <td>{lease.premises ?? '—'}</td>
         <td className="actions">
-          <button className="btn btn-ghost btn-sm" onClick={() => setOpen(!open)}>
-            {open ? 'Hide' : 'Details'}
-          </button>
+          <Link to={`/leases/${lease.id}`} className="btn btn-ghost btn-sm">Details</Link>
           <button className="btn btn-ghost btn-sm" onClick={() => onViewText(lease)}>Text</button>
           <button className="btn btn-ghost btn-sm" onClick={openPdf} disabled={!lease.storage_path}>PDF</button>
         </td>
       </tr>
-      {open && (
-        <tr className="details-row">
-          <td colSpan={7}>
-            {lease.summary && <p className="summary">{lease.summary}</p>}
-            {abstractEntries.length ? (
-              <dl className="abstract">
-                {abstractEntries.map(([key, label]) => (
-                  <Fragment key={key}>
-                    <dt>{label}</dt>
-                    <dd>{lease.abstract[key]}</dd>
-                  </Fragment>
-                ))}
-              </dl>
-            ) : (
-              <p className="muted">No key terms were found in this document.</p>
-            )}
-            <LeaseClauses leaseId={lease.id} />
-          </td>
-        </tr>
-      )}
     </>
   )
 }

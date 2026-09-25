@@ -11,8 +11,12 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import Anthropic from 'npm:@anthropic-ai/sdk@0.128.0'
 import { classifyClause, loadClauseModel, splitClauses, type ClauseModel, type ClauseModelJson } from './clause_svm.ts'
 import clauseModelJson from './clause_model.json' with { type: 'json' }
+// Gitignored; copy config.example.ts. Deployed together with this function.
+import { config } from './config.ts'
 
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5'
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || config.anthropicApiKey
+const ANTHROPIC_BASE_URL = Deno.env.get('ANTHROPIC_BASE_URL') || config.anthropicBaseUrl || undefined
+const MODEL = Deno.env.get('ANTHROPIC_MODEL') || config.anthropicModel || 'claude-opus-5'
 // ~1M token context; leave room for the prompt and output.
 const MAX_INPUT_CHARS = 2_500_000
 
@@ -39,7 +43,7 @@ const ABSTRACT_FIELDS = [
 
 // Bump when changing this function, together with EXPECTED_FUNCTION_VERSION in
 // src/lib/health.ts; returned in the x-function-version header.
-const FUNCTION_VERSION = '7'
+const FUNCTION_VERSION = '8'
 
 const OUTPUT_SCHEMA = {
   type: 'object',
@@ -413,10 +417,10 @@ async function callClaude(
   existingMains: Array<Record<string, unknown>>,
   log: Log,
 ): Promise<ClaudeDocument[]> {
-  const client = new Anthropic() // reads ANTHROPIC_API_KEY
-  if (!Deno.env.get('ANTHROPIC_API_KEY')) {
-    throw new Error('ANTHROPIC_API_KEY is not set. Add it under Edge Functions -> Secrets.')
+  if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'sk-ant-...') {
+    throw new Error('The Anthropic API key is not set. Put it in supabase/functions/analyze-lease/config.ts and redeploy.')
   }
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY, baseURL: ANTHROPIC_BASE_URL })
 
   const started = Date.now()
   await log('info', 'claude', `Sending request to Claude (${MODEL})`, {

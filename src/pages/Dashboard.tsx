@@ -1,57 +1,67 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/AuthProvider'
 import { supabase } from '../lib/supabase'
+import type { Lease } from '../lib/leases'
+import { daysFromToday, leaseTerms } from '../lib/leaseStatus'
 
-type Stats = {
-  files: number
-  documents: number
-  mainLeases: number
-  amendments: number
-  addenda: number
-  commencementLetters: number
-  otherChildren: number
-  scanned: number
-}
+type Tile = [label: string, value: number | undefined, hint?: string, tone?: string]
 
-async function countRows(table: 'lease_files' | 'leases', filter?: (q: any) => any) {
-  let query = supabase.from(table).select('*', { count: 'exact', head: true })
-  if (filter) query = filter(query)
-  const { count, error } = await query
-  if (error) throw new Error(error.message)
-  return count ?? 0
+function Tiles({ tiles }: { tiles: Tile[] }) {
+  return (
+    <section className="stats">
+      {tiles.map(([label, value, hint, tone]) => (
+        <div key={label} className={`card stat${tone ? ` stat-${tone}` : ''}`}>
+          <div className="stat-label">{label}</div>
+          <div className="stat-value">{value ?? '…'}</div>
+          {hint && <div className="muted small">{hint}</div>}
+        </div>
+      ))}
+    </section>
+  )
 }
 
 export function Dashboard() {
   const { session } = useAuth()
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [files, setFiles] = useState<Array<{ is_scanned: boolean }> | null>(null)
+  const [leases, setLeases] = useState<Lease[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      countRows('lease_files'),
-      countRows('leases'),
-      countRows('leases', (q) => q.eq('doc_type', 'main_lease')),
-      countRows('leases', (q) => q.eq('doc_type', 'amendment')),
-      countRows('leases', (q) => q.eq('doc_type', 'addendum')),
-      countRows('leases', (q) => q.eq('doc_type', 'commencement_letter')),
-      countRows('leases', (q) => q.eq('doc_type', 'other')),
-      countRows('lease_files', (q) => q.eq('is_scanned', true)),
-    ]).then(
-      ([files, documents, mainLeases, amendments, addenda, commencementLetters, otherChildren, scanned]) =>
-        setStats({ files, documents, mainLeases, amendments, addenda, commencementLetters, otherChildren, scanned }),
-      (e) => setError(e.message),
+    Promise.all([supabase.from('lease_files').select('is_scanned'), supabase.from('leases').select('*')]).then(
+      ([filesRes, leasesRes]) => {
+        const err = filesRes.error ?? leasesRes.error
+        if (err) setError(err.message)
+        setFiles(filesRes.data ?? [])
+        setLeases(leasesRes.data ?? [])
+      },
     )
   }, [])
 
-  const tiles: Array<[string, number | undefined, string?]> = [
-    ['Files uploaded', stats?.files, stats ? `${stats.scanned} scanned (OCR)` : undefined],
-    ['Lease documents', stats?.documents, 'All documents found in uploads'],
-    ['Main leases', stats?.mainLeases],
-    ['Amendments', stats?.amendments],
-    ['Addenda', stats?.addenda],
-    ['Commencement letters', stats?.commencementLetters],
-    ['Other documents', stats?.otherChildren, 'Assignments, guaranties, SNDAs…'],
+  const terms = useMemo(() => (leases ? leaseTerms(leases) : null), [leases])
+  const expiringSoon = useMemo(
+    () => terms?.filter((t) => t.expiringSoon).sort((a, b) => a.expiration!.getTime() - b.expiration!.getTime()) ?? [],
+    [terms],
+  )
+
+  const count = (type: Lease['doc_type']) => leases?.filter((l) => l.doc_type === type).length
+  const unknown = terms?.filter((t) => t.status === 'unknown').length ?? 0
+
+  const statusTiles: Tile[] = [
+    ['Active leases', terms?.filter((t) => t.status === 'active').length, 'Expiration date is today or later', 'active'],
+    ['Renewed leases', terms?.filter((t) => t.renewed).length, 'Extended by an amendment or extension', 'renewed'],
+    ['Expired leases', terms?.filter((t) => t.status === 'expired').length, 'Expiration date has passed', 'expired'],
+    ['Expiring in 12 months', terms ? expiringSoon.length : undefined, 'Active leases ending within a year', 'soon'],
+  ]
+
+  const documentTiles: Tile[] = [
+    ['Files uploaded', files?.length, files ? `${files.filter((f) => f.is_scanned).length} scanned (OCR)` : undefined],
+    ['Lease documents', leases?.length, 'All documents found in uploads'],
+    ['Main leases', count('main_lease')],
+    ['Amendments', count('amendment')],
+    ['Addenda', count('addendum')],
+    ['Commencement letters', count('commencement_letter')],
+    ['Other documents', count('other'), 'Assignments, guaranties, SNDAs…'],
   ]
 
   return (
@@ -66,15 +76,54 @@ export function Dashboard() {
 
       {error && <p className="error">{error}</p>}
 
-      <section className="stats">
-        {tiles.map(([label, value, hint]) => (
-          <div key={label} className="card stat">
-            <div className="stat-label">{label}</div>
-            <div className="stat-value">{value ?? '…'}</div>
-            {hint && <div className="muted small">{hint}</div>}
-          </div>
-        ))}
-      </section>
+      <h2 className="section-title">Lease status</h2>
+      <Tiles tiles={statusTiles} />
+      {unknown > 0 && (
+        <p className="muted small">
+          {unknown} main lease{unknown === 1 ? '' : 's'} with no expiration date found {unknown === 1 ? 'is' : 'are'} not counted as active or expired.
+        </p>
+      )}
+
+      <h2 className="section-title">Expiring in the next 12 months</h2>
+      {!terms ? (
+        <p className="muted">Loading…</p>
+      ) : expiringSoon.length === 0 ? (
+        <p className="muted">No active leases expire in the next 12 months.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Lease</th>
+                <th>Tenant</th>
+                <th>Premises</th>
+                <th>Expires</th>
+                <th>Days left</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expiringSoon.map((t) => {
+                const days = daysFromToday(t.expiration!)
+                return (
+                  <tr key={t.main.id}>
+                    <td>
+                      <Link to={`/leases/${t.main.id}`} className="doc-title panel-link">{t.main.title}</Link>
+                      {t.renewed && <span className="badge badge-success badge-inline">Renewed</span>}
+                    </td>
+                    <td>{t.main.tenant ?? '—'}</td>
+                    <td>{t.main.premises ?? '—'}</td>
+                    <td className="nowrap">{t.expiration!.toLocaleDateString()}</td>
+                    <td className={`nowrap${days <= 90 ? ' error' : ''}`}>{days}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2 className="section-title">Documents</h2>
+      <Tiles tiles={documentTiles} />
     </main>
   )
 }

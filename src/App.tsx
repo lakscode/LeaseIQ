@@ -8,6 +8,8 @@ import { Dashboard } from './pages/Dashboard'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { ResetPassword } from './pages/ResetPassword'
 import { LeaseAbstraction } from './pages/LeaseAbstraction'
+import { Settings } from './pages/Settings'
+import { Details } from './pages/Details'
 
 export default function App() {
   return (
@@ -32,6 +34,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <LeaseAbstraction />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leases/:id"
+            element={
+              <ProtectedRoute>
+                <Details />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />

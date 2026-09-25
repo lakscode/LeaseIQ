@@ -6,3 +6,7 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Edge Function settings (API key)
+functions/.env
+functions/analyze-lease/config.ts

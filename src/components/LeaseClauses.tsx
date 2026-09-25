@@ -16,7 +16,7 @@ export function LeaseClauses({ leaseId }: { leaseId: string }) {
 
   const groups = new Map<string, LeaseClause[]>()
   for (const c of clauses) groups.set(c.label, [...(groups.get(c.label) ?? []), c])
-  const sorted = [...groups].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+  const sorted = [...groups].sort((a, b) => a[0].localeCompare(b[0]))
   const uncertain = clauses.filter((c) => c.score < LOW_CONFIDENCE_SCORE).length
 
   return (
