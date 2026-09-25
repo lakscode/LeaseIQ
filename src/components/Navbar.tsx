@@ -19,6 +19,7 @@ export function Navbar() {
           <>
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/leases">Lease Abstraction</Link>
+            <Link to="/chat">Ask</Link>
             <Link to="/settings">Settings</Link>
             <button className="btn btn-ghost" onClick={signOut}>Sign out</button>
           </>

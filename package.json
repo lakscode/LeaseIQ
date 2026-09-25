@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npx supabase functions deploy analyze-lease"
+    "deploy": "npx supabase functions deploy analyze-lease && npx supabase functions deploy lease-chat"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

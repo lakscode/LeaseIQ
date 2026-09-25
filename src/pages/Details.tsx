@@ -158,6 +158,7 @@ export function Details() {
               <h1>{lease.title}</h1>
             </div>
             <div className="dash-actions">
+              <Link to={`/chat?lease=${lease.id}`} className="btn btn-sm">Ask about this lease</Link>
               <button className="btn btn-ghost btn-sm" onClick={() => setViewing(lease)}>Text</button>
               <button
                 className="btn btn-ghost btn-sm"

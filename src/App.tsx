@@ -10,6 +10,7 @@ import { ResetPassword } from './pages/ResetPassword'
 import { LeaseAbstraction } from './pages/LeaseAbstraction'
 import { Settings } from './pages/Settings'
 import { Details } from './pages/Details'
+import { Chat } from './pages/Chat'
 
 export default function App() {
   return (
@@ -42,6 +43,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Details />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <Chat />
               </ProtectedRoute>
             }
           />

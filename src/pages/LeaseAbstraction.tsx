@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   deleteLeaseFile,
@@ -9,7 +9,7 @@ import {
   type LeaseFile,
   type Stage,
 } from '../lib/leases'
-import { LeaseDocuments } from '../components/LeaseDocuments'
+import { DocumentCells, fileDocuments } from '../components/LeaseDocuments'
 import { TextViewer } from '../components/TextViewer'
 import { LogViewer } from '../components/LogViewer'
 import { checkSetup, type SetupIssue } from '../lib/health'
@@ -42,7 +42,6 @@ export function LeaseAbstraction() {
   const [leases, setLeases] = useState<Lease[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [upload, setUpload] = useState<{ name: string; stage: Stage } | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [busyFiles, setBusyFiles] = useState<Record<string, Stage>>({})
@@ -142,14 +141,6 @@ export function LeaseAbstraction() {
     await load()
   }
 
-  const toggle = (id: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
   const filesById = new Map(files.map((f) => [f.id, f]))
   const logFile = logFileId ? filesById.get(logFileId) : undefined
   const progress = upload ? describeStage(upload.stage) : null
@@ -232,95 +223,103 @@ export function LeaseAbstraction() {
         <p className="muted">No files uploaded yet.</p>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table files-table">
             <thead>
               <tr>
-                <th />
                 <th>File</th>
-                <th>Pages</th>
-                <th>Source</th>
-                <th>Documents</th>
-                <th>Main leases</th>
-                <th>Status</th>
-                <th>Uploaded</th>
+                <th>Type</th>
+                <th>Document</th>
+                <th>Effective</th>
+                <th>Tenant</th>
+                <th>Premises</th>
+                <th />
                 <th />
               </tr>
             </thead>
-            <tbody>
-              {files.map((file, i) => {
-                const docs = leases.filter((l) => l.file_id === file.id)
-                const busy = busyFiles[file.id]
-                const isUploading = upload !== null && !FINAL_STATUSES.has(file.status)
-                const stalled = !FINAL_STATUSES.has(file.status) && !busy && !isUploading
-                const isOpen = expanded.has(file.id)
-                return (
-                  <Fragment key={file.id}>
-                    <tr className={`file-row${i % 2 ? ' file-row-alt' : ''}`} onClick={() => toggle(file.id)}>
-                      <td className="chevron">{isOpen ? '▾' : '▸'}</td>
-                      <td className="doc-title">{file.file_name}</td>
-                      <td>{file.page_count}</td>
-                      <td>
-                        {file.is_scanned ? (
-                          <span className="badge badge-ocr" title={`${file.ocr_pages} page(s) converted with OCR`}>
-                            Scanned (OCR {file.ocr_pages}p)
-                          </span>
-                        ) : (
-                          <span className="badge">Digital</span>
-                        )}
-                      </td>
-                      <td>{docs.length}</td>
-                      <td>{docs.filter((d) => d.doc_type === 'main_lease').length}</td>
-                      <td>
-                        <StatusBadge file={file} busy={busy} />
-                        {busy && <div className="muted small stage-detail">{describeStage(busy).text}</div>}
-                        {!busy && file.status === 'failed' && file.error && <div className="error small">{file.error}</div>}
-                      </td>
-                      <td className="nowrap">{new Date(file.created_at).toLocaleString()}</td>
-                      <td className="actions" onClick={(e) => e.stopPropagation()}>
-                        {busy ? (
-                          <button className="btn btn-ghost btn-sm" disabled>
-                            <Spinner /> {BUSY_LABELS[busy.stage]}…
-                          </button>
-                        ) : file.status === 'failed' || stalled ? (
-                          <button className="btn btn-ghost btn-sm" onClick={() => retry(file)}>Retry</button>
-                        ) : (
-                          file.status === 'completed' && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => retry(file, true)}
-                              title="Run the AI analysis again and replace this file's documents and clauses"
-                            >
-                              Re-analyze
-                            </button>
-                          )
-                        )}
-                        <button className="btn btn-ghost btn-sm" onClick={() => setLogFileId(file.id)}>Log</button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => openStoredPdf(file.storage_path).catch((e) => alert(e.message))}
-                        >
-                          PDF
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm danger"
-                          onClick={() => remove(file)}
-                          disabled={!!busy || isUploading}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                    {isOpen && (
-                      <tr className="expanded-row">
-                        <td colSpan={9}>
-                          <LeaseDocuments file={file} allLeases={leases} filesById={filesById} onViewText={setViewing} />
-                        </td>
-                      </tr>
+            {files.map((file, i) => {
+              const docs = fileDocuments(file, leases)
+              const busy = busyFiles[file.id]
+              const isUploading = upload !== null && !FINAL_STATUSES.has(file.status)
+              const stalled = !FINAL_STATUSES.has(file.status) && !busy && !isUploading
+              const span = Math.max(docs.length, 1)
+
+              const fileCell = (
+                <td rowSpan={span} className="file-cell">
+                  <button
+                    className="file-name"
+                    onClick={() => openStoredPdf(file.storage_path).catch((e) => alert(e.message))}
+                    title="Open the original PDF"
+                  >
+                    {file.file_name}
+                  </button>
+                  <div className="file-badges">
+                    <StatusBadge file={file} busy={busy} />
+                    {file.is_scanned ? (
+                      <span className="badge badge-ocr" title={`${file.ocr_pages} page(s) converted with OCR`}>
+                        Scanned (OCR {file.ocr_pages}p)
+                      </span>
+                    ) : (
+                      <span className="badge">Digital</span>
                     )}
-                  </Fragment>
-                )
-              })}
-            </tbody>
+                  </div>
+                  <div className="muted small">
+                    {file.page_count} {file.page_count === 1 ? 'page' : 'pages'} · {new Date(file.created_at).toLocaleString()}
+                  </div>
+                  {busy && <div className="muted small stage-detail">{describeStage(busy).text}</div>}
+                  {!busy && file.status === 'failed' && file.error && <div className="error small">{file.error}</div>}
+                </td>
+              )
+
+              const fileActions = (
+                <td rowSpan={span} className="actions file-actions">
+                  {busy ? (
+                    <button className="btn btn-ghost btn-sm" disabled>
+                      <Spinner /> {BUSY_LABELS[busy.stage]}…
+                    </button>
+                  ) : file.status === 'failed' || stalled ? (
+                    <button className="btn btn-ghost btn-sm" onClick={() => retry(file)}>Retry</button>
+                  ) : (
+                    file.status === 'completed' && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => retry(file, true)}
+                        title="Run the AI analysis again and replace this file's documents and clauses"
+                      >
+                        Re-analyze
+                      </button>
+                    )
+                  )}
+                  <button className="btn btn-ghost btn-sm" onClick={() => setLogFileId(file.id)}>Log</button>
+                  <button className="btn btn-ghost btn-sm danger" onClick={() => remove(file)} disabled={!!busy || isUploading}>
+                    Delete
+                  </button>
+                </td>
+              )
+
+              return (
+                <tbody key={file.id} className={`file-group${i % 2 ? ' file-group-alt' : ''}`}>
+                  {docs.length === 0 ? (
+                    <tr>
+                      {fileCell}
+                      <td colSpan={6} className="muted doc-empty-cell">
+                        {FINAL_STATUSES.has(file.status) && !busy
+                          ? 'No lease documents were found in this file.'
+                          : 'Documents appear here once processing finishes.'}
+                      </td>
+                      {fileActions}
+                    </tr>
+                  ) : (
+                    docs.map((entry, j) => (
+                      <tr key={entry.lease.id}>
+                        {j === 0 && fileCell}
+                        <DocumentCells entry={entry} onViewText={setViewing} />
+                        {j === 0 && fileActions}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              )
+            })}
           </table>
         </div>
       )}
